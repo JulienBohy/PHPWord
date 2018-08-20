@@ -43,26 +43,12 @@
          */
         private $_documentXML;
         private $_header1XML;
-        private $_header2XML;
-        private $_header3XML;
-        private $_header4XML;
-        private $_header5XML;
-        private $_header6XML;
-        private $_header7XML;
-        private $_header8XML;
-        private $_header9XML;
-        private $_header10XML;
-        private $_header11XML;
-        private $_header12XML;
-        private $_header13XML;
-        private $_header14XML;
-        private $_header15XML;
+
 
 
         private $_footer1XML;
         private $_footer2XML;
         private $_footer3XML;
-        private $_footer4XML;
         private $_rels;
         private $_types;
         private $_countRels;
