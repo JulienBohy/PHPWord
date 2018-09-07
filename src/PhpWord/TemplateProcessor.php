@@ -17,6 +17,7 @@
 
 	namespace PhpOffice\PhpWord;
 
+	use DateTime;
 	use PhpOffice\PhpWord\Escaper\RegExp;
 	use PhpOffice\PhpWord\Escaper\Xml;
 	use PhpOffice\PhpWord\Exception\CopyFileException;
@@ -47,6 +48,20 @@
 		 * @var string
 		 */
 		protected $tempDocumentMainPart;
+
+		/**
+		 * Content of app properties document part (in XML format) of the temporary document
+		 *
+		 * @var string
+		 */
+		protected $tempDocumentPropsAppPart;
+
+		/**
+		 * Content of core properties document part (in XML format) of the temporary document
+		 *
+		 * @var string
+		 */
+		protected $tempDocumentPropsCorePart;
 
 		/**
 		 * Content of headers (in XML format) of the temporary document
@@ -95,12 +110,14 @@
 		{
 			// Temporary document filename initialization
 			$this->tempDocumentFilename = tempnam(Settings::getTempDir(), 'PhpWord');
-			if (false === $this->tempDocumentFilename) {
+			if (false === $this->tempDocumentFilename)
+			{
 				throw new CreateTemporaryFileException();
 			}
 
 			// Template file cloning
-			if (false === copy($documentTemplate, $this->tempDocumentFilename)) {
+			if (false === copy($documentTemplate, $this->tempDocumentFilename))
+			{
 				throw new CopyFileException($documentTemplate, $this->tempDocumentFilename);
 			}
 
@@ -108,18 +125,25 @@
 			$this->zipClass = new ZipArchive();
 			$this->zipClass->open($this->tempDocumentFilename);
 			$index = 1;
-			while (false !== $this->zipClass->locateName($this->getHeaderName($index))) {
+			while (false !== $this->zipClass->locateName($this->getHeaderName($index)))
+			{
 				$this->tempDocumentHeaders[$index] = $this->readPartWithRels($this->getHeaderName($index));
 				$index++;
 			}
 			$index = 1;
-			while (false !== $this->zipClass->locateName($this->getFooterName($index))) {
+			while (false !== $this->zipClass->locateName($this->getFooterName($index)))
+			{
 				$this->tempDocumentFooters[$index] = $this->readPartWithRels($this->getFooterName($index));
 				$index++;
 			}
 
 			$this->tempDocumentMainPart = $this->readPartWithRels($this->getMainPartName());
+
+			$this->tempDocumentPropsAppPart  = $this->readPartWithRels($this->getdocPropsAppName());
+			$this->tempDocumentPropsCorePart = $this->readPartWithRels($this->getdocPropsCoreName());
+
 			$this->tempDocumentContentTypes = $this->zipClass->getFromName($this->getDocumentContentTypesName());
+
 		}
 
 		/**
@@ -129,9 +153,10 @@
 		 */
 		protected function readPartWithRels($fileName)
 		{
-			$relsFileName = $this->getRelationsName($fileName);
+			$relsFileName  = $this->getRelationsName($fileName);
 			$partRelations = $this->zipClass->getFromName($relsFileName);
-			if ($partRelations !== false) {
+			if ($partRelations !== false)
+			{
 				$this->tempDocumentRelations[$fileName] = $partRelations;
 			}
 
@@ -139,7 +164,7 @@
 		}
 
 		/**
-		 * @param string $xml
+		 * @param string         $xml
 		 * @param \XSLTProcessor $xsltProcessor
 		 *
 		 * @throws \PhpOffice\PhpWord\Exception\Exception
@@ -149,12 +174,14 @@
 		protected function transformSingleXml($xml, $xsltProcessor)
 		{
 			$domDocument = new \DOMDocument();
-			if (false === $domDocument->loadXML($xml)) {
+			if (false === $domDocument->loadXML($xml))
+			{
 				throw new Exception('Could not load the given XML document.');
 			}
 
 			$transformedXml = $xsltProcessor->transformToXml($domDocument);
-			if (false === $transformedXml) {
+			if (false === $transformedXml)
+			{
 				throw new Exception('Could not transform the given XML document.');
 			}
 
@@ -162,18 +189,22 @@
 		}
 
 		/**
-		 * @param mixed $xml
+		 * @param mixed          $xml
 		 * @param \XSLTProcessor $xsltProcessor
 		 *
 		 * @return mixed
 		 */
 		protected function transformXml($xml, $xsltProcessor)
 		{
-			if (is_array($xml)) {
-				foreach ($xml as &$item) {
+			if (is_array($xml))
+			{
+				foreach ($xml as &$item)
+				{
 					$item = $this->transformSingleXml($item, $xsltProcessor);
 				}
-			} else {
+			}
+			else
+			{
 				$xml = $this->transformSingleXml($xml, $xsltProcessor);
 			}
 
@@ -187,8 +218,8 @@
 		 * make sure that output is correctly escaped. Otherwise you may get broken document.
 		 *
 		 * @param \DOMDocument $xslDomDocument
-		 * @param array $xslOptions
-		 * @param string $xslOptionsUri
+		 * @param array        $xslOptions
+		 * @param string       $xslOptionsUri
 		 *
 		 * @throws \PhpOffice\PhpWord\Exception\Exception
 		 */
@@ -197,13 +228,14 @@
 			$xsltProcessor = new \XSLTProcessor();
 
 			$xsltProcessor->importStylesheet($xslDomDocument);
-			if (false === $xsltProcessor->setParameter($xslOptionsUri, $xslOptions)) {
+			if (false === $xsltProcessor->setParameter($xslOptionsUri, $xslOptions))
+			{
 				throw new Exception('Could not set values for the given XSL style sheet parameters.');
 			}
 
-			$this->tempDocumentHeaders = $this->transformXml($this->tempDocumentHeaders, $xsltProcessor);
+			$this->tempDocumentHeaders  = $this->transformXml($this->tempDocumentHeaders, $xsltProcessor);
 			$this->tempDocumentMainPart = $this->transformXml($this->tempDocumentMainPart, $xsltProcessor);
-			$this->tempDocumentFooters = $this->transformXml($this->tempDocumentFooters, $xsltProcessor);
+			$this->tempDocumentFooters  = $this->transformXml($this->tempDocumentFooters, $xsltProcessor);
 		}
 
 		/**
@@ -213,8 +245,9 @@
 		 */
 		protected static function ensureMacroCompleted($macro)
 		{
-			if (substr($macro, 0, 2) !== '${' && substr($macro, -1) !== '}') {
-				$macro = '${' . $macro . '}';
+			if (substr($macro, 0, 2) !== '${' && substr($macro, -1) !== '}')
+			{
+				$macro = '${'.$macro.'}';
 			}
 
 			return $macro;
@@ -227,7 +260,8 @@
 		 */
 		protected static function ensureUtf8Encoded($subject)
 		{
-			if (!StringUtils::isValidUtf8($subject)) {
+			if (!StringUtils::isValidUtf8($subject))
+			{
 				$subject = utf8_encode($subject);
 			}
 
@@ -237,65 +271,161 @@
 		/**
 		 * @param mixed $search
 		 * @param mixed $replace
-		 * @param int $limit
+		 * @param int   $limit
 		 */
 		public function setValue($search, $replace, $limit = self::MAXIMUM_REPLACEMENTS_DEFAULT)
 		{
-			if (is_array($search)) {
-				foreach ($search as &$item) {
+			if (is_array($search))
+			{
+				foreach ($search as &$item)
+				{
 					$item = self::ensureMacroCompleted($item);
 				}
-			} else {
+			}
+			else
+			{
 				$search = self::ensureMacroCompleted($search);
 			}
 
-			if (is_array($replace)) {
-				foreach ($replace as &$item) {
+			if (is_array($replace))
+			{
+				foreach ($replace as &$item)
+				{
 					$item = self::ensureUtf8Encoded($item);
 				}
-			} else {
+			}
+			else
+			{
 				$replace = self::ensureUtf8Encoded($replace);
 			}
 
-			if (Settings::isOutputEscapingEnabled()) {
+			if (Settings::isOutputEscapingEnabled())
+			{
 				$xmlEscaper = new Xml();
-				$replace = $xmlEscaper->escape($replace);
+				$replace    = $xmlEscaper->escape($replace);
 			}
 
-			$this->tempDocumentHeaders = $this->setValueForPart($search, $replace, $this->tempDocumentHeaders, $limit);
+			$this->tempDocumentHeaders  = $this->setValueForPart($search, $replace, $this->tempDocumentHeaders, $limit);
 			$this->tempDocumentMainPart = $this->setValueForPart($search, $replace, $this->tempDocumentMainPart, $limit);
-			$this->tempDocumentFooters = $this->setValueForPart($search, $replace, $this->tempDocumentFooters, $limit);
+			$this->tempDocumentFooters  = $this->setValueForPart($search, $replace, $this->tempDocumentFooters, $limit);
+		}
+
+		/**
+		 * @param $Title
+		 */
+		public function setTitle($Title)
+		{
+			$xml                             = new \SimpleXMLElement($this->tempDocumentPropsCorePart);
+			$xml->xpath('//dc:title')[0][0]  = $Title;
+			$this->tempDocumentPropsCorePart = $xml->asXML();
+
+		}
+
+		/**
+		 * @param $Subject
+		 */
+		public function setSubject($Subject)
+		{
+
+			$xml                              = new \SimpleXMLElement($this->tempDocumentPropsCorePart);
+			$xml->xpath('//dc:subject')[0][0] = $Subject;
+			$this->tempDocumentPropsCorePart  = $xml->asXML();
+		}
+
+		/**
+		 * @param $Description
+		 */
+		public function setDescription($Description)
+		{
+			$xml                                  = new \SimpleXMLElement($this->tempDocumentPropsCorePart);
+			$xml->xpath('//dc:description')[0][0] = $Description;
+			$this->tempDocumentPropsCorePart      = $xml->asXML();
+		}
+
+
+		/**
+		 * @param $creator
+		 */
+		public function setCreator($creator)
+		{
+			$xml                              = new \SimpleXMLElement($this->tempDocumentPropsCorePart);
+			$xml->xpath('//dc:creator')[0][0] = $creator;
+			$this->tempDocumentPropsCorePart  = $xml->asXML();
+
+		}
+
+		/**
+		 * @param $lastModifiedBy
+		 */
+		public function setLastModifiedBy($lastModifiedBy)
+		{
+			$xml                                     = new \SimpleXMLElement($this->tempDocumentPropsCorePart);
+			$xml->xpath('//dc:lastModifiedBy')[0][0] = $lastModifiedBy;
+			$this->tempDocumentPropsCorePart         = $xml->asXML();
+		}
+
+		/**
+		 * @param DateTime $modified
+		 */
+		public function setModified(DateTime $modified)
+		{
+			$xml                                    = new \SimpleXMLElement($this->tempDocumentPropsCorePart);
+			$xml->xpath('//dcterms:modified')[0][0] = $modified->format(DateTime::W3C);
+			$this->tempDocumentPropsCorePart        = $xml->asXML();
+		}
+
+
+		/**
+		 * @param DateTime $created
+		 */
+		public function setCreated(DateTime $created)
+		{
+			$xml                                   = new \SimpleXMLElement($this->tempDocumentPropsCorePart);
+			$xml->xpath('//dcterms:created')[0][0] = $created->format(DateTime::W3C);
+			$this->tempDocumentPropsCorePart       = $xml->asXML();
 		}
 
 		private function getImageArgs($varNameWithArgs)
 		{
 			$varElements = explode(':', $varNameWithArgs);
 			array_shift($varElements); // first element is name of variable => remove it
-
 			$varInlineArgs = array();
 			// size format documentation: https://msdn.microsoft.com/en-us/library/documentformat.openxml.vml.shape%28v=office.14%29.aspx?f=255&MSPPError=-2147217396
-			foreach ($varElements as $argIdx => $varArg) {
-				if (strpos($varArg, '=')) { // arg=value
+			foreach ($varElements as $argIdx => $varArg)
+			{
+				if (strpos($varArg, '='))
+				{ // arg=value
 					list($argName, $argValue) = explode('=', $varArg, 2);
 					$argName = strtolower($argName);
-					if ($argName == 'size') {
+					if ($argName == 'size')
+					{
 						list($varInlineArgs['width'], $varInlineArgs['height']) = explode('x', $argValue, 2);
-					} else {
+					}
+					else
+					{
 						$varInlineArgs[strtolower($argName)] = $argValue;
 					}
-				} elseif (preg_match('/^([0-9]*[a-z%]{0,2}|auto)x([0-9]*[a-z%]{0,2}|auto)$/i', $varArg)) { // 60x40
-					list($varInlineArgs['width'], $varInlineArgs['height']) = explode('x', $varArg, 2);
-				} else { // :60:40:f
-					switch ($argIdx) {
-						case 0:
-							$varInlineArgs['width'] = $varArg;
-							break;
-						case 1:
-							$varInlineArgs['height'] = $varArg;
-							break;
-						case 2:
-							$varInlineArgs['ratio'] = $varArg;
-							break;
+				}
+				else
+				{
+					if (preg_match('/^([0-9]*[a-z%]{0,2}|auto)x([0-9]*[a-z%]{0,2}|auto)$/i', $varArg))
+					{ // 60x40
+						list($varInlineArgs['width'], $varInlineArgs['height']) = explode('x', $varArg, 2);
+					}
+					else
+					{ // :60:40:f
+						switch ($argIdx)
+						{
+							case 0:
+								$varInlineArgs['width'] = $varArg;
+								break;
+							case 1:
+								$varInlineArgs['height'] = $varArg;
+								break;
+							case 2:
+								$varInlineArgs['ratio'] = $varArg;
+								break;
+						}
 					}
 				}
 			}
@@ -306,16 +436,20 @@
 		private function chooseImageDimension($baseValue, $inlineValue, $defaultValue)
 		{
 			$value = $baseValue;
-			if (is_null($value) && isset($inlineValue)) {
+			if (is_null($value) && isset($inlineValue))
+			{
 				$value = $inlineValue;
 			}
-			if (!preg_match('/^([0-9]*(cm|mm|in|pt|pc|px|%|em|ex|)|auto)$/i', $value)) {
+			if (!preg_match('/^([0-9]*(cm|mm|in|pt|pc|px|%|em|ex|)|auto)$/i', $value))
+			{
 				$value = null;
 			}
-			if (is_null($value)) {
+			if (is_null($value))
+			{
 				$value = $defaultValue;
 			}
-			if (is_numeric($value)) {
+			if (is_numeric($value))
+			{
 				$value .= 'px';
 			}
 
@@ -326,37 +460,57 @@
 		{
 			$imageRatio = $actualWidth / $actualHeight;
 
-			if (($width === '') && ($height === '')) { // defined size are empty
-				$width = $actualWidth . 'px';
-				$height = $actualHeight . 'px';
-			} elseif ($width === '') { // defined width is empty
-				$heightFloat = (float) $height;
-				$widthFloat = $heightFloat * $imageRatio;
-				$matches = array();
-				preg_match("/\d([a-z%]+)$/", $height, $matches);
-				$width = $widthFloat . $matches[1];
-			} elseif ($height === '') { // defined height is empty
-				$widthFloat = (float) $width;
-				$heightFloat = $widthFloat / $imageRatio;
-				$matches = array();
-				preg_match("/\d([a-z%]+)$/", $width, $matches);
-				$height = $heightFloat . $matches[1];
-			} else { // we have defined size, but we need also check it aspect ratio
-				$widthMatches = array();
-				preg_match("/\d([a-z%]+)$/", $width, $widthMatches);
-				$heightMatches = array();
-				preg_match("/\d([a-z%]+)$/", $height, $heightMatches);
-				// try to fix only if dimensions are same
-				if ($widthMatches[1] == $heightMatches[1]) {
-					$dimention = $widthMatches[1];
-					$widthFloat = (float) $width;
-					$heightFloat = (float) $height;
-					$definedRatio = $widthFloat / $heightFloat;
+			if (($width === '') && ($height === ''))
+			{ // defined size are empty
+				$width  = $actualWidth.'px';
+				$height = $actualHeight.'px';
+			}
+			else
+			{
+				if ($width === '')
+				{ // defined width is empty
+					$heightFloat = (float)$height;
+					$widthFloat  = $heightFloat * $imageRatio;
+					$matches     = array();
+					preg_match("/\d([a-z%]+)$/", $height, $matches);
+					$width = $widthFloat.$matches[1];
+				}
+				else
+				{
+					if ($height === '')
+					{ // defined height is empty
+						$widthFloat  = (float)$width;
+						$heightFloat = $widthFloat / $imageRatio;
+						$matches     = array();
+						preg_match("/\d([a-z%]+)$/", $width, $matches);
+						$height = $heightFloat.$matches[1];
+					}
+					else
+					{ // we have defined size, but we need also check it aspect ratio
+						$widthMatches = array();
+						preg_match("/\d([a-z%]+)$/", $width, $widthMatches);
+						$heightMatches = array();
+						preg_match("/\d([a-z%]+)$/", $height, $heightMatches);
+						// try to fix only if dimensions are same
+						if ($widthMatches[1] == $heightMatches[1])
+						{
+							$dimention    = $widthMatches[1];
+							$widthFloat   = (float)$width;
+							$heightFloat  = (float)$height;
+							$definedRatio = $widthFloat / $heightFloat;
 
-					if ($imageRatio > $definedRatio) { // image wider than defined box
-						$height = ($widthFloat / $imageRatio) . $dimention;
-					} elseif ($imageRatio < $definedRatio) { // image higher than defined box
-						$width = ($heightFloat * $imageRatio) . $dimention;
+							if ($imageRatio > $definedRatio)
+							{ // image wider than defined box
+								$height = ($widthFloat / $imageRatio).$dimention;
+							}
+							else
+							{
+								if ($imageRatio < $definedRatio)
+								{ // image higher than defined box
+									$width = ($heightFloat * $imageRatio).$dimention;
+								}
+							}
+						}
 					}
 				}
 			}
@@ -365,47 +519,51 @@
 		private function prepareImageAttrs($replaceImage, $varInlineArgs)
 		{
 			// get image path and size
-			$width = null;
+			$width  = null;
 			$height = null;
-			$ratio = null;
-			if (is_array($replaceImage) && isset($replaceImage['path'])) {
+			$ratio  = null;
+			if (is_array($replaceImage) && isset($replaceImage['path']))
+			{
 				$imgPath = $replaceImage['path'];
-				if (isset($replaceImage['width'])) {
+				if (isset($replaceImage['width']))
+				{
 					$width = $replaceImage['width'];
 				}
-				if (isset($replaceImage['height'])) {
+				if (isset($replaceImage['height']))
+				{
 					$height = $replaceImage['height'];
 				}
-				if (isset($replaceImage['ratio'])) {
+				if (isset($replaceImage['ratio']))
+				{
 					$ratio = $replaceImage['ratio'];
 				}
-			} else {
+			}
+			else
+			{
 				$imgPath = $replaceImage;
 			}
 
-			$width = $this->chooseImageDimension($width, isset($varInlineArgs['width']) ? $varInlineArgs['width'] : null, 115);
+			$width  = $this->chooseImageDimension($width, isset($varInlineArgs['width']) ? $varInlineArgs['width'] : null, 115);
 			$height = $this->chooseImageDimension($height, isset($varInlineArgs['height']) ? $varInlineArgs['height'] : null, 70);
 
 			$imageData = @getimagesize($imgPath);
-			if (!is_array($imageData)) {
+			if (!is_array($imageData))
+			{
 				throw new Exception(sprintf('Invalid image: %s', $imgPath));
 			}
 			list($actualWidth, $actualHeight, $imageType) = $imageData;
 
 			// fix aspect ratio (by default)
-			if (is_null($ratio) && isset($varInlineArgs['ratio'])) {
+			if (is_null($ratio) && isset($varInlineArgs['ratio']))
+			{
 				$ratio = $varInlineArgs['ratio'];
 			}
-			if (is_null($ratio) || !in_array(strtolower($ratio), array('', '-', 'f', 'false'))) {
+			if (is_null($ratio) || !in_array(strtolower($ratio), array('', '-', 'f', 'false')))
+			{
 				$this->fixImageWidthHeightRatio($width, $height, $actualWidth, $actualHeight);
 			}
 
-			$imageAttrs = array(
-				'src'    => $imgPath,
-				'mime'   => image_type_to_mime_type($imageType),
-				'width'  => $width,
-				'height' => $height,
-			);
+			$imageAttrs = array('src' => $imgPath, 'mime' => image_type_to_mime_type($imageType), 'width' => $width, 'height' => $height,);
 
 			return $imageAttrs;
 		}
@@ -413,84 +571,91 @@
 		private function addImageToRelations($partFileName, $rid, $imgPath, $imageMimeType)
 		{
 			// define templates
-			$typeTpl = '<Override PartName="/word/media/{IMG}" ContentType="image/{EXT}"/>';
-			$relationTpl = '<Relationship Id="{RID}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/{IMG}"/>';
-			$newRelationsTpl = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' . "\n" . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+			$typeTpl             = '<Override PartName="/word/media/{IMG}" ContentType="image/{EXT}"/>';
+			$relationTpl         = '<Relationship Id="{RID}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/{IMG}"/>';
+			$newRelationsTpl     = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n".'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
 			$newRelationsTypeTpl = '<Override PartName="/{RELS}" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>';
-			$extTransform = array(
-				'image/jpeg' => 'jpeg',
-				'image/png'  => 'png',
-				'image/bmp'  => 'bmp',
-				'image/gif'  => 'gif',
-			);
+			$extTransform        = array('image/jpeg' => 'jpeg', 'image/png' => 'png', 'image/bmp' => 'bmp', 'image/gif' => 'gif',);
 
 			// get image embed name
-			if (isset($this->tempDocumentNewImages[$imgPath])) {
+			if (isset($this->tempDocumentNewImages[$imgPath]))
+			{
 				$imgName = $this->tempDocumentNewImages[$imgPath];
-			} else {
+			}
+			else
+			{
 				// transform extension
-				if (isset($extTransform[$imageMimeType])) {
+				if (isset($extTransform[$imageMimeType]))
+				{
 					$imgExt = $extTransform[$imageMimeType];
-				} else {
+				}
+				else
+				{
 					throw new Exception("Unsupported image type $imageMimeType");
 				}
 
 				// add image to document
-				$imgName = 'image_' . $rid . '_' . pathinfo($partFileName, PATHINFO_FILENAME) . '.' . $imgExt;
-				$this->zipClass->pclzipAddFile($imgPath, 'word/media/' . $imgName);
+				$imgName = 'image_'.$rid.'_'.pathinfo($partFileName, PATHINFO_FILENAME).'.'.$imgExt;
+				$this->zipClass->pclzipAddFile($imgPath, 'word/media/'.$imgName);
 				$this->tempDocumentNewImages[$imgPath] = $imgName;
 
 				// setup type for image
-				$xmlImageType = str_replace(array('{IMG}', '{EXT}'), array($imgName, $imgExt), $typeTpl);
-				$this->tempDocumentContentTypes = str_replace('</Types>', $xmlImageType, $this->tempDocumentContentTypes) . '</Types>';
+				$xmlImageType                   = str_replace(array('{IMG}', '{EXT}'), array($imgName, $imgExt), $typeTpl);
+				$this->tempDocumentContentTypes = str_replace('</Types>', $xmlImageType, $this->tempDocumentContentTypes).'</Types>';
 			}
 
 			$xmlImageRelation = str_replace(array('{RID}', '{IMG}'), array($rid, $imgName), $relationTpl);
 
-			if (!isset($this->tempDocumentRelations[$partFileName])) {
+			if (!isset($this->tempDocumentRelations[$partFileName]))
+			{
 				// create new relations file
 				$this->tempDocumentRelations[$partFileName] = $newRelationsTpl;
 				// and add it to content types
-				$xmlRelationsType = str_replace('{RELS}', $this->getRelationsName($partFileName), $newRelationsTypeTpl);
-				$this->tempDocumentContentTypes = str_replace('</Types>', $xmlRelationsType, $this->tempDocumentContentTypes) . '</Types>';
+				$xmlRelationsType               = str_replace('{RELS}', $this->getRelationsName($partFileName), $newRelationsTypeTpl);
+				$this->tempDocumentContentTypes = str_replace('</Types>', $xmlRelationsType, $this->tempDocumentContentTypes).'</Types>';
 			}
 
 			// add image to relations
-			$this->tempDocumentRelations[$partFileName] = str_replace('</Relationships>', $xmlImageRelation, $this->tempDocumentRelations[$partFileName]) . '</Relationships>';
+			$this->tempDocumentRelations[$partFileName] = str_replace('</Relationships>', $xmlImageRelation, $this->tempDocumentRelations[$partFileName]).'</Relationships>';
 		}
 
 		/**
 		 * @param mixed $search
 		 * @param mixed $replace Path to image, or array("path" => xx, "width" => yy, "height" => zz)
-		 * @param int $limit
+		 * @param int   $limit
 		 */
 		public function setImageValue($search, $replace, $limit = self::MAXIMUM_REPLACEMENTS_DEFAULT)
 		{
 			// prepare $search_replace
-			if (!is_array($search)) {
+			if (!is_array($search))
+			{
 				$search = array($search);
 			}
 
 			$replacesList = array();
-			if (!is_array($replace) || isset($replace['path'])) {
+			if (!is_array($replace) || isset($replace['path']))
+			{
 				$replacesList[] = $replace;
-			} else {
+			}
+			else
+			{
 				$replacesList = array_values($replace);
 			}
 
 			$searchReplace = array();
-			foreach ($search as $searchIdx => $searchString) {
+			foreach ($search as $searchIdx => $searchString)
+			{
 				$searchReplace[$searchString] = isset($replacesList[$searchIdx]) ? $replacesList[$searchIdx] : $replacesList[0];
 			}
 
 			// collect document parts
-			$searchParts = array(
-				$this->getMainPartName() => &$this->tempDocumentMainPart,
-			);
-			foreach (array_keys($this->tempDocumentHeaders) as $headerIndex) {
+			$searchParts = array($this->getMainPartName() => &$this->tempDocumentMainPart,);
+			foreach (array_keys($this->tempDocumentHeaders) as $headerIndex)
+			{
 				$searchParts[$this->getHeaderName($headerIndex)] = &$this->tempDocumentHeaders[$headerIndex];
 			}
-			foreach (array_keys($this->tempDocumentFooters) as $headerIndex) {
+			foreach (array_keys($this->tempDocumentFooters) as $headerIndex)
+			{
 				$searchParts[$this->getFooterName($headerIndex)] = &$this->tempDocumentFooters[$headerIndex];
 			}
 
@@ -498,22 +663,28 @@
 			// result can be verified via "Open XML SDK 2.5 Productivity Tool" (http://www.microsoft.com/en-us/download/details.aspx?id=30425)
 			$imgTpl = '<w:pict><v:shape type="#_x0000_t75" style="width:{WIDTH};height:{HEIGHT}"><v:imagedata r:id="{RID}" o:title=""/></v:shape></w:pict>';
 
-			foreach ($searchParts as $partFileName => &$partContent) {
+			foreach ($searchParts as $partFileName => &$partContent)
+			{
 				$partVariables = $this->getVariablesForPart($partContent);
 
-				foreach ($searchReplace as $searchString => $replaceImage) {
-					$varsToReplace = array_filter($partVariables, function ($partVar) use ($searchString) {
-						return ($partVar == $searchString) || preg_match('/^' . preg_quote($searchString) . ':/', $partVar);
-					});
+				foreach ($searchReplace as $searchString => $replaceImage)
+				{
+					$varsToReplace = array_filter(
+						$partVariables, function ($partVar) use ($searchString)
+					{
+						return ($partVar == $searchString) || preg_match('/^'.preg_quote($searchString).':/', $partVar);
+					}
+					);
 
-					foreach ($varsToReplace as $varNameWithArgs) {
-						$varInlineArgs = $this->getImageArgs($varNameWithArgs);
+					foreach ($varsToReplace as $varNameWithArgs)
+					{
+						$varInlineArgs      = $this->getImageArgs($varNameWithArgs);
 						$preparedImageAttrs = $this->prepareImageAttrs($replaceImage, $varInlineArgs);
-						$imgPath = $preparedImageAttrs['src'];
+						$imgPath            = $preparedImageAttrs['src'];
 
 						// get image index
 						$imgIndex = $this->getNextRelationsIndex($partFileName);
-						$rid = 'rId' . $imgIndex;
+						$rid      = 'rId'.$imgIndex;
 
 						// replace preparations
 						$this->addImageToRelations($partFileName, $rid, $imgPath, $preparedImageAttrs['mime']);
@@ -521,12 +692,13 @@
 
 						// replace variable
 						$varNameWithArgsFixed = self::ensureMacroCompleted($varNameWithArgs);
-						$matches = array();
-						if (preg_match('/(<[^<]+>)([^<]*)(' . preg_quote($varNameWithArgsFixed) . ')([^>]*)(<[^>]+>)/Uu', $partContent, $matches)) {
+						$matches              = array();
+						if (preg_match('/(<[^<]+>)([^<]*)('.preg_quote($varNameWithArgsFixed).')([^>]*)(<[^>]+>)/Uu', $partContent, $matches))
+						{
 							$wholeTag = $matches[0];
 							array_shift($matches);
 							list($openTag, $prefix, , $postfix, $closeTag) = $matches;
-							$replaceXml = $openTag . $prefix . $closeTag . $xmlImage . $openTag . $postfix . $closeTag;
+							$replaceXml = $openTag.$prefix.$closeTag.$xmlImage.$openTag.$postfix.$closeTag;
 							// replace on each iteration, because in one tag we can have 2+ inline variables => before proceed next variable we need to change $partContent
 							$partContent = $this->setValueForPart($wholeTag, $replaceXml, $partContent, $limit);
 						}
@@ -544,11 +716,13 @@
 		{
 			$variables = $this->getVariablesForPart($this->tempDocumentMainPart);
 
-			foreach ($this->tempDocumentHeaders as $headerXML) {
+			foreach ($this->tempDocumentHeaders as $headerXML)
+			{
 				$variables = array_merge($variables, $this->getVariablesForPart($headerXML));
 			}
 
-			foreach ($this->tempDocumentFooters as $footerXML) {
+			foreach ($this->tempDocumentFooters as $footerXML)
+			{
 				$variables = array_merge($variables, $this->getVariablesForPart($footerXML));
 			}
 
@@ -559,42 +733,47 @@
 		 * Clone a table row in a template document.
 		 *
 		 * @param string $search
-		 * @param int $numberOfClones
+		 * @param int    $numberOfClones
 		 *
 		 * @throws \PhpOffice\PhpWord\Exception\Exception
 		 */
 		public function cloneRow($search, $numberOfClones)
 		{
-			if ('${' !== substr($search, 0, 2) && '}' !== substr($search, -1)) {
-				$search = '${' . $search . '}';
+			if ('${' !== substr($search, 0, 2) && '}' !== substr($search, -1))
+			{
+				$search = '${'.$search.'}';
 			}
 
 			$tagPos = strpos($this->tempDocumentMainPart, $search);
-			if (!$tagPos) {
+			if (!$tagPos)
+			{
 				throw new Exception('Can not clone row, template variable not found or variable contains markup.');
 			}
 
 			$rowStart = $this->findRowStart($tagPos);
-			$rowEnd = $this->findRowEnd($tagPos);
-			$xmlRow = $this->getSlice($rowStart, $rowEnd);
+			$rowEnd   = $this->findRowEnd($tagPos);
+			$xmlRow   = $this->getSlice($rowStart, $rowEnd);
 
 			// Check if there's a cell spanning multiple rows.
-			if (preg_match('#<w:vMerge w:val="restart"/>#', $xmlRow)) {
+			if (preg_match('#<w:vMerge w:val="restart"/>#', $xmlRow))
+			{
 				// $extraRowStart = $rowEnd;
 				$extraRowEnd = $rowEnd;
-				while (true) {
+				while (true)
+				{
 					$extraRowStart = $this->findRowStart($extraRowEnd + 1);
-					$extraRowEnd = $this->findRowEnd($extraRowEnd + 1);
+					$extraRowEnd   = $this->findRowEnd($extraRowEnd + 1);
 
 					// If extraRowEnd is lower then 7, there was no next row found.
-					if ($extraRowEnd < 7) {
+					if ($extraRowEnd < 7)
+					{
 						break;
 					}
 
 					// If tmpXmlRow doesn't contain continue, this row is no longer part of the spanned row.
 					$tmpXmlRow = $this->getSlice($extraRowStart, $extraRowEnd);
-					if (!preg_match('#<w:vMerge/>#', $tmpXmlRow) &&
-						!preg_match('#<w:vMerge w:val="continue" />#', $tmpXmlRow)) {
+					if (!preg_match('#<w:vMerge/>#', $tmpXmlRow) && !preg_match('#<w:vMerge w:val="continue" />#', $tmpXmlRow))
+					{
 						break;
 					}
 					// This row was a spanned row, update $rowEnd and search for the next row.
@@ -604,8 +783,9 @@
 			}
 
 			$result = $this->getSlice(0, $rowStart);
-			for ($i = 1; $i <= $numberOfClones; $i++) {
-				$result .= preg_replace('/\$\{(.*?)\}/', '\${\\1#' . $i . '}', $xmlRow);
+			for ($i = 1; $i <= $numberOfClones; $i++)
+			{
+				$result .= preg_replace('/\$\{(.*?)\}/', '\${\\1#'.$i.'}', $xmlRow);
 			}
 			$result .= $this->getSlice($rowEnd);
 
@@ -616,8 +796,8 @@
 		 * Clone a block.
 		 *
 		 * @param string $blockname
-		 * @param int $clones
-		 * @param bool $replace
+		 * @param int    $clones
+		 * @param bool   $replace
 		 *
 		 * @return string|null
 		 */
@@ -625,23 +805,22 @@
 		{
 			$xmlBlock = null;
 			preg_match(
-				'/(<\?xml.*)(<w:p.*>\${' . $blockname . '}<\/w:.*?p>)(.*)(<w:p.*\${\/' . $blockname . '}<\/w:.*?p>)/is',
-				$this->tempDocumentMainPart,
-				$matches
+				'/(<\?xml.*)(<w:p.*>\${'.$blockname.'}<\/w:.*?p>)(.*)(<w:p.*\${\/'.$blockname.'}<\/w:.*?p>)/is', $this->tempDocumentMainPart, $matches
 			);
 
-			if (isset($matches[3])) {
+			if (isset($matches[3]))
+			{
 				$xmlBlock = $matches[3];
-				$cloned = array();
-				for ($i = 1; $i <= $clones; $i++) {
+				$cloned   = array();
+				for ($i = 1; $i <= $clones; $i++)
+				{
 					$cloned[] = $xmlBlock;
 				}
 
-				if ($replace) {
+				if ($replace)
+				{
 					$this->tempDocumentMainPart = str_replace(
-						$matches[2] . $matches[3] . $matches[4],
-						implode('', $cloned),
-						$this->tempDocumentMainPart
+						$matches[2].$matches[3].$matches[4], implode('', $cloned), $this->tempDocumentMainPart
 					);
 				}
 			}
@@ -658,16 +837,13 @@
 		public function replaceBlock($blockname, $replacement)
 		{
 			preg_match(
-				'/(<\?xml.*)(<w:p.*>\${' . $blockname . '}<\/w:.*?p>)(.*)(<w:p.*\${\/' . $blockname . '}<\/w:.*?p>)/is',
-				$this->tempDocumentMainPart,
-				$matches
+				'/(<\?xml.*)(<w:p.*>\${'.$blockname.'}<\/w:.*?p>)(.*)(<w:p.*\${\/'.$blockname.'}<\/w:.*?p>)/is', $this->tempDocumentMainPart, $matches
 			);
 
-			if (isset($matches[3])) {
+			if (isset($matches[3]))
+			{
 				$this->tempDocumentMainPart = str_replace(
-					$matches[2] . $matches[3] . $matches[4],
-					$replacement,
-					$this->tempDocumentMainPart
+					$matches[2].$matches[3].$matches[4], $replacement, $this->tempDocumentMainPart
 				);
 			}
 		}
@@ -691,20 +867,27 @@
 		 */
 		public function save()
 		{
-			foreach ($this->tempDocumentHeaders as $index => $xml) {
+			foreach ($this->tempDocumentHeaders as $index => $xml)
+			{
 				$this->savePartWithRels($this->getHeaderName($index), $xml);
 			}
 
 			$this->savePartWithRels($this->getMainPartName(), $this->tempDocumentMainPart);
 
-			foreach ($this->tempDocumentFooters as $index => $xml) {
+			$this->savePartWithRels($this->getdocPropsCoreName(), $this->tempDocumentPropsCorePart);
+
+			$this->savePartWithRels($this->getdocPropsAppName(), $this->tempDocumentPropsAppPart);
+
+			foreach ($this->tempDocumentFooters as $index => $xml)
+			{
 				$this->savePartWithRels($this->getFooterName($index), $xml);
 			}
 
 			$this->zipClass->addFromString($this->getDocumentContentTypesName(), $this->tempDocumentContentTypes);
 
 			// Close zip file
-			if (false === $this->zipClass->close()) {
+			if (false === $this->zipClass->close())
+			{
 				throw new Exception('Could not close zip file.');
 			}
 
@@ -718,7 +901,8 @@
 		protected function savePartWithRels($fileName, $xml)
 		{
 			$this->zipClass->addFromString($fileName, $xml);
-			if (isset($this->tempDocumentRelations[$fileName])) {
+			if (isset($this->tempDocumentRelations[$fileName]))
+			{
 				$relsFileName = $this->getRelationsName($fileName);
 				$this->zipClass->addFromString($relsFileName, $this->tempDocumentRelations[$fileName]);
 			}
@@ -735,7 +919,8 @@
 		{
 			$tempFileName = $this->save();
 
-			if (file_exists($fileName)) {
+			if (file_exists($fileName))
+			{
 				unlink($fileName);
 			}
 
@@ -762,11 +947,10 @@
 			$fixedDocumentPart = $documentPart;
 
 			$fixedDocumentPart = preg_replace_callback(
-				'|\$[^{]*\{[^}]*\}|U',
-				function ($match) {
-					return strip_tags($match[0]);
-				},
-				$fixedDocumentPart
+				'|\$[^{]*\{[^}]*\}|U', function ($match)
+			{
+				return strip_tags($match[0]);
+			}, $fixedDocumentPart
 			);
 
 			return $fixedDocumentPart;
@@ -775,17 +959,18 @@
 		/**
 		 * Find and replace macros in the given XML section.
 		 *
-		 * @param mixed $search
-		 * @param mixed $replace
+		 * @param mixed  $search
+		 * @param mixed  $replace
 		 * @param string $documentPartXML
-		 * @param int $limit
+		 * @param int    $limit
 		 *
 		 * @return string
 		 */
 		protected function setValueForPart($search, $replace, $documentPartXML, $limit)
 		{
 			// Note: we can't use the same function for both cases here, because of performance considerations.
-			if (self::MAXIMUM_REPLACEMENTS_DEFAULT === $limit) {
+			if (self::MAXIMUM_REPLACEMENTS_DEFAULT === $limit)
+			{
 				return str_replace($search, $replace, $documentPartXML);
 			}
 			$regExpEscaper = new RegExp();
@@ -822,6 +1007,22 @@
 		/**
 		 * @return string
 		 */
+		protected function getdocPropsAppName()
+		{
+			return ('docProps/app.xml');
+		}
+
+		/**
+		 * @return string
+		 */
+		protected function getdocPropsCoreName()
+		{
+			return ('docProps/core.xml');
+		}
+
+		/**
+		 * @return string
+		 */
 		protected function getMainPartName()
 		{
 			return 'word/document.xml';
@@ -848,12 +1049,13 @@
 		 */
 		protected function getRelationsName($documentPartName)
 		{
-			return 'word/_rels/' . pathinfo($documentPartName, PATHINFO_BASENAME) . '.rels';
+			return 'word/_rels/'.pathinfo($documentPartName, PATHINFO_BASENAME).'.rels';
 		}
 
 		protected function getNextRelationsIndex($documentPartName)
 		{
-			if (isset($this->tempDocumentRelations[$documentPartName])) {
+			if (isset($this->tempDocumentRelations[$documentPartName]))
+			{
 				return substr_count($this->tempDocumentRelations[$documentPartName], '<Relationship');
 			}
 
@@ -881,10 +1083,12 @@
 		{
 			$rowStart = strrpos($this->tempDocumentMainPart, '<w:tr ', ((strlen($this->tempDocumentMainPart) - $offset) * -1));
 
-			if (!$rowStart) {
+			if (!$rowStart)
+			{
 				$rowStart = strrpos($this->tempDocumentMainPart, '<w:tr>', ((strlen($this->tempDocumentMainPart) - $offset) * -1));
 			}
-			if (!$rowStart) {
+			if (!$rowStart)
+			{
 				throw new Exception('Can not find the start position of the row to clone.');
 			}
 
@@ -913,7 +1117,8 @@
 		 */
 		protected function getSlice($startPosition, $endPosition = 0)
 		{
-			if (!$endPosition) {
+			if (!$endPosition)
+			{
 				$endPosition = strlen($this->tempDocumentMainPart);
 			}
 

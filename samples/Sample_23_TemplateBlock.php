@@ -11,6 +11,15 @@ $templateProcessor->cloneBlock('CLONEME', 3);
 // Everything between ${tag} and ${/tag}, will be deleted/erased.
 $templateProcessor->deleteBlock('DELETEME');
 
+$templateProcessor->setCreator('My name');
+$templateProcessor->setTitle('My title');
+$templateProcessor->setDescription('My description');
+$templateProcessor->setLastModifiedBy('My name');
+$templateProcessor->setCreated(new DateTime());
+$templateProcessor->setModified(new DateTime());
+$templateProcessor->setSubject('My subject');
+
+
 echo date('H:i:s'), ' Saving the result document...', EOL;
 $templateProcessor->saveAs('results/Sample_23_TemplateBlock.docx');
 
