@@ -2,5 +2,5 @@
 
 - with add possiblility to add image in templates
 
-# ![PHPWord](https://rawgit.com/PHPOffice/PHPWord/develop/docs/images/phpword.svg "PHPWord")
+# ![PHPWord](https://cdn.jsdelivr.net/gh/PHPOffice/PHPWord@develop/docs/images/phpword.svg "PHPWord")
 
